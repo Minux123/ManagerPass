@@ -1,7 +1,7 @@
 # ManagerPass
 NAME
     ManagerPass v1.0 — Password Manager
-    Author: Minux
+    Author: Minux123
 
 DESCRIPTION
     A simple and secure password manager with a modern interface.
