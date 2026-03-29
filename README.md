@@ -16,16 +16,15 @@ FEATURES
     • Export and import all passwords (JSON)
     • Show/hide password
     • System theme (light/dark follows Windows settings)
+    - Manually switch between themes
+    - Search for passwords by site name or login
+    - Edit site, login, password directly in the table
+    - 30-second lockout after 3 failed attempts to enter the master-password
     • No Python installation required (ready-to-use .exe included)
 
 INSTALLATION
     Run ManagerPass.exe — the program is ready to use.
     No additional installation required.
-
-DATA STORAGE
-    • Passwords are saved in Documents folder: passwords.json
-    • Master password hash is saved in Documents folder: master.hash
-    • Reset key file: master_reset.key
 
 RESET MASTER PASSWORD
     If you forgot your master password:
