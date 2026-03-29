@@ -38,7 +38,4 @@ SYSTEM REQUIREMENTS
     • Windows 10 / Windows 11
     • No additional software required
 
-FILES INCLUDED
-    ManagerPass.exe      — ready-to-use program (run this)
-    ManagerPass.txt      — source code
-    README.txt           — this file
+Icons: Twitter Twemoji (CC-BY 4.0)
