@@ -6,6 +6,7 @@ import random
 import string
 import hashlib
 import time
+import csv
 from datetime import datetime
 from tkinter import filedialog
 from cryptography.fernet import Fernet
@@ -153,9 +154,9 @@ LANGUAGES = {
         "site": "Сайт / Сервис:",
         "login": "Логин:",
         "password": "Пароль:",
+        "note": "Заметки:",
         "generate": "🎲 Сгенерировать",
         "add": "➕ Добавить",
-        "edit": "✏️ Редактировать",
         "delete": "🗑️ Удалить",
         "saved_passwords": "Сохранённые пароли",
         "search": "Поиск:",
@@ -164,8 +165,10 @@ LANGUAGES = {
         "site_header": "Сайт / Сервис",
         "login_header": "Логин",
         "password_header": "Пароль",
+        "note_header": "Заметки",
         "copy_login": "📋 Логин",
         "copy_password": "📋 Пароль",
+        "copy_note": "📋 Заметки",
         "error_empty_site": "Ошибка",
         "error_empty_site_msg": "Введите название сайта",
         "error_empty_password": "Ошибка",
@@ -174,13 +177,6 @@ LANGUAGES = {
         "weak_password_msg": "Пароль слишком простой. Рекомендуется использовать более сложный пароль.",
         "success": "Успех",
         "saved_msg": "Пароль для {} сохранён!",
-        "edit_title": "Редактировать",
-        "edit_site": "Название сайта:",
-        "edit_login": "Логин:",
-        "edit_password": "Пароль:",
-        "save": "Сохранить",
-        "updated_msg": "Запись обновлена!",
-        "select_site": "Выберите сайт для редактирования:",
         "select_delete": "Выберите сайт для удаления:",
         "confirm_delete": "Подтверждение",
         "confirm_delete_msg": "Удалить пароль для {}?",
@@ -188,13 +184,14 @@ LANGUAGES = {
         "copied": "Скопировано",
         "copied_login_msg": "Логин для {} скопирован",
         "copied_pass_msg": "Пароль для {} скопирован",
+        "copied_note_msg": "Заметка для {} скопирована",
         "language": "🌐 Язык",
         "by_minux": "By Minux",
         "show_password": "Показать пароль",
         "cancel": "Отмена",
         "ok": "OK",
-        "export": "📤 Экспорт",
-        "import": "📥 Импорт",
+        "export": "📤 Экспорт JSON",
+        "import": "📥 Импорт JSON",
         "export_success": "Экспорт выполнен!",
         "export_msg": "Пароли сохранены в файл:",
         "import_success": "Импорт выполнен!",
@@ -204,7 +201,10 @@ LANGUAGES = {
         "theme": "Тема",
         "theme_light": "Светлая",
         "theme_dark": "Тёмная",
-        "theme_system": "Системная"
+        "theme_system": "Системная",
+        "search_count": "Найдено: {}",
+        "csv_export": "📊 Экспорт CSV",
+        "csv_success": "Экспорт в CSV выполнен!"
     },
     "English": {
         "title": "Password Manager",
@@ -227,9 +227,9 @@ LANGUAGES = {
         "site": "Site / Service:",
         "login": "Login:",
         "password": "Password:",
+        "note": "Notes:",
         "generate": "🎲 Generate",
         "add": "➕ Add",
-        "edit": "✏️ Edit",
         "delete": "🗑️ Delete",
         "saved_passwords": "Saved Passwords",
         "search": "Search:",
@@ -238,8 +238,10 @@ LANGUAGES = {
         "site_header": "Site / Service",
         "login_header": "Login",
         "password_header": "Password",
+        "note_header": "Notes",
         "copy_login": "📋 Login",
         "copy_password": "📋 Password",
+        "copy_note": "📋 Note",
         "error_empty_site": "Error",
         "error_empty_site_msg": "Enter site name",
         "error_empty_password": "Error",
@@ -248,13 +250,6 @@ LANGUAGES = {
         "weak_password_msg": "This password is too simple. Use a stronger password.",
         "success": "Success",
         "saved_msg": "Password for {} saved!",
-        "edit_title": "Edit",
-        "edit_site": "Site name:",
-        "edit_login": "Login:",
-        "edit_password": "Password:",
-        "save": "Save",
-        "updated_msg": "Entry updated!",
-        "select_site": "Select site to edit:",
         "select_delete": "Select site to delete:",
         "confirm_delete": "Confirm",
         "confirm_delete_msg": "Delete password for {}?",
@@ -262,13 +257,14 @@ LANGUAGES = {
         "copied": "Copied",
         "copied_login_msg": "Login for {} copied",
         "copied_pass_msg": "Password for {} copied",
+        "copied_note_msg": "Note for {} copied",
         "language": "🌐 Language",
         "by_minux": "By Minux",
         "show_password": "Show password",
         "cancel": "Cancel",
         "ok": "OK",
-        "export": "📤 Export",
-        "import": "📥 Import",
+        "export": "📤 Export JSON",
+        "import": "📥 Import JSON",
         "export_success": "Export completed!",
         "export_msg": "Passwords saved to file:",
         "import_success": "Import completed!",
@@ -278,7 +274,229 @@ LANGUAGES = {
         "theme": "Theme",
         "theme_light": "Light",
         "theme_dark": "Dark",
-        "theme_system": "System"
+        "theme_system": "System",
+        "search_count": "Found: {}",
+        "csv_export": "📊 Export CSV",
+        "csv_success": "CSV export completed!"
+    },
+    "Türkçe": {
+        "title": "Şifre Yöneticisi",
+        "settings": "⚙️ Ayarlar",
+        "master_password": "Ana Şifre",
+        "master_enabled": "Ana şifreyi etkinleştir",
+        "master_disabled": "Ana şifreyi devre dışı bırak",
+        "master_change": "Ana şifreyi değiştir",
+        "master_forgot": "Ana şifrenizi mi unuttunuz?",
+        "master_forgot_help": "Anahtar dosyası oluşturuldu. Programı yeniden başlatın.",
+        "master_title": "Ana şifreyi girin",
+        "master_first": "Ana şifre oluşturun",
+        "master_confirm": "Şifreyi onaylayın",
+        "master_mismatch": "Şifreler eşleşmiyor",
+        "master_wrong": "Yanlış ana şifre",
+        "master_success": "Ana şifre ayarlandı!",
+        "master_removed": "Ana şifre devre dışı bırakıldı!",
+        "master_changed": "Ana şifre değiştirildi!",
+        "master_blocked": "Çok fazla deneme. {} saniye bekleyin.",
+        "site": "Site / Hizmet:",
+        "login": "Kullanıcı Adı:",
+        "password": "Şifre:",
+        "note": "Notlar:",
+        "generate": "🎲 Oluştur",
+        "add": "➕ Ekle",
+        "delete": "🗑️ Sil",
+        "saved_passwords": "Kaydedilen Şifreler",
+        "search": "Ara:",
+        "clear_search": "Temizle",
+        "empty": "Kayıtlı şifre yok",
+        "site_header": "Site / Hizmet",
+        "login_header": "Kullanıcı Adı",
+        "password_header": "Şifre",
+        "note_header": "Notlar",
+        "copy_login": "📋 Kullanıcı",
+        "copy_password": "📋 Şifre",
+        "copy_note": "📋 Not",
+        "error_empty_site": "Hata",
+        "error_empty_site_msg": "Site adını girin",
+        "error_empty_password": "Hata",
+        "error_empty_password_msg": "Şifreyi girin",
+        "weak_password_warning": "⚠️ Zayıf Şifre",
+        "weak_password_msg": "Bu şifre çok basit. Daha güçlü bir şifre kullanın.",
+        "success": "Başarılı",
+        "saved_msg": "{} için şifre kaydedildi!",
+        "select_delete": "Silinecek siteyi seçin:",
+        "confirm_delete": "Onay",
+        "confirm_delete_msg": "{} için şifre silinsin mi?",
+        "deleted_msg": "{} için şifre silindi!",
+        "copied": "Kopyalandı",
+        "copied_login_msg": "{} için kullanıcı adı kopyalandı",
+        "copied_pass_msg": "{} için şifre kopyalandı",
+        "copied_note_msg": "{} için not kopyalandı",
+        "language": "🌐 Dil",
+        "by_minux": "Minux",
+        "show_password": "Şifreyi göster",
+        "cancel": "İptal",
+        "ok": "Tamam",
+        "export": "📤 Dışa Aktar JSON",
+        "import": "📥 İçe Aktar JSON",
+        "export_success": "Dışa aktarma tamamlandı!",
+        "export_msg": "Şifreler dosyaya kaydedildi:",
+        "import_success": "İçe aktarma tamamlandı!",
+        "import_msg": "Şifreler dosyadan geri yüklendi",
+        "import_error": "İçe aktarma hatası",
+        "import_error_msg": "Dosya içe aktarılamadı",
+        "theme": "Tema",
+        "theme_light": "Açık",
+        "theme_dark": "Koyu",
+        "theme_system": "Sistem",
+        "search_count": "Bulunan: {}",
+        "csv_export": "📊 CSV'ye Aktar",
+        "csv_success": "CSV dışa aktarma tamamlandı!"
+    },
+    "Deutsch": {
+        "title": "Passwort-Manager",
+        "settings": "⚙️ Einstellungen",
+        "master_password": "Master-Passwort",
+        "master_enabled": "Master-Passwort aktivieren",
+        "master_disabled": "Master-Passwort deaktivieren",
+        "master_change": "Master-Passwort ändern",
+        "master_forgot": "Master-Passwort vergessen?",
+        "master_forgot_help": "Schlüsseldatei erstellt. Starten Sie das Programm neu.",
+        "master_title": "Master-Passwort eingeben",
+        "master_first": "Master-Passwort erstellen",
+        "master_confirm": "Passwort bestätigen",
+        "master_mismatch": "Passwörter stimmen nicht überein",
+        "master_wrong": "Falsches Master-Passwort",
+        "master_success": "Master-Passwort gesetzt!",
+        "master_removed": "Master-Passwort deaktiviert!",
+        "master_changed": "Master-Passwort geändert!",
+        "master_blocked": "Zu viele Versuche. Warten Sie {} Sekunden.",
+        "site": "Website / Dienst:",
+        "login": "Benutzername:",
+        "password": "Passwort:",
+        "note": "Notizen:",
+        "generate": "🎲 Generieren",
+        "add": "➕ Hinzufügen",
+        "delete": "🗑️ Löschen",
+        "saved_passwords": "Gespeicherte Passwörter",
+        "search": "Suchen:",
+        "clear_search": "Löschen",
+        "empty": "Keine gespeicherten Passwörter",
+        "site_header": "Website / Dienst",
+        "login_header": "Benutzername",
+        "password_header": "Passwort",
+        "note_header": "Notizen",
+        "copy_login": "📋 Benutzername",
+        "copy_password": "📋 Passwort",
+        "copy_note": "📋 Notiz",
+        "error_empty_site": "Fehler",
+        "error_empty_site_msg": "Website-Namen eingeben",
+        "error_empty_password": "Fehler",
+        "error_empty_password_msg": "Passwort eingeben",
+        "weak_password_warning": "⚠️ Schwaches Passwort",
+        "weak_password_msg": "Dieses Passwort ist zu einfach. Verwenden Sie ein stärkeres Passwort.",
+        "success": "Erfolg",
+        "saved_msg": "Passwort für {} gespeichert!",
+        "select_delete": "Website zum Löschen auswählen:",
+        "confirm_delete": "Bestätigen",
+        "confirm_delete_msg": "Passwort für {} löschen?",
+        "deleted_msg": "Passwort für {} gelöscht!",
+        "copied": "Kopiert",
+        "copied_login_msg": "Benutzername für {} kopiert",
+        "copied_pass_msg": "Passwort für {} kopiert",
+        "copied_note_msg": "Notiz für {} kopiert",
+        "language": "🌐 Sprache",
+        "by_minux": "Minux",
+        "show_password": "Passwort anzeigen",
+        "cancel": "Abbrechen",
+        "ok": "OK",
+        "export": "📤 Exportieren JSON",
+        "import": "📥 Importieren JSON",
+        "export_success": "Export abgeschlossen!",
+        "export_msg": "Passwörter in Datei gespeichert:",
+        "import_success": "Import abgeschlossen!",
+        "import_msg": "Passwörter aus Datei wiederhergestellt",
+        "import_error": "Importfehler",
+        "import_error_msg": "Datei konnte nicht importiert werden",
+        "theme": "Thema",
+        "theme_light": "Hell",
+        "theme_dark": "Dunkel",
+        "theme_system": "System",
+        "search_count": "Gefunden: {}",
+        "csv_export": "📊 CSV-Export",
+        "csv_success": "CSV-Export abgeschlossen!"
+    },
+    "中文": {
+        "title": "密码管理器",
+        "settings": "⚙️ 设置",
+        "master_password": "主密码",
+        "master_enabled": "启用主密码",
+        "master_disabled": "禁用主密码",
+        "master_change": "更改主密码",
+        "master_forgot": "忘记主密码？",
+        "master_forgot_help": "密钥文件已创建。请重启程序。",
+        "master_title": "输入主密码",
+        "master_first": "创建主密码",
+        "master_confirm": "确认密码",
+        "master_mismatch": "密码不匹配",
+        "master_wrong": "主密码错误",
+        "master_success": "主密码已设置！",
+        "master_removed": "主密码已禁用！",
+        "master_changed": "主密码已更改！",
+        "master_blocked": "尝试次数过多。请等待 {} 秒。",
+        "site": "网站 / 服务:",
+        "login": "用户名:",
+        "password": "密码:",
+        "note": "备注:",
+        "generate": "🎲 生成",
+        "add": "➕ 添加",
+        "delete": "🗑️ 删除",
+        "saved_passwords": "已保存的密码",
+        "search": "搜索:",
+        "clear_search": "清除",
+        "empty": "没有保存的密码",
+        "site_header": "网站 / 服务",
+        "login_header": "用户名",
+        "password_header": "密码",
+        "note_header": "备注",
+        "copy_login": "📋 用户名",
+        "copy_password": "📋 密码",
+        "copy_note": "📋 备注",
+        "error_empty_site": "错误",
+        "error_empty_site_msg": "请输入网站名称",
+        "error_empty_password": "错误",
+        "error_empty_password_msg": "请输入密码",
+        "weak_password_warning": "⚠️ 弱密码",
+        "weak_password_msg": "此密码太简单。请使用更强的密码。",
+        "success": "成功",
+        "saved_msg": "{} 的密码已保存！",
+        "select_delete": "选择要删除的网站:",
+        "confirm_delete": "确认",
+        "confirm_delete_msg": "删除 {} 的密码？",
+        "deleted_msg": "{} 的密码已删除！",
+        "copied": "已复制",
+        "copied_login_msg": "{} 的用户名已复制",
+        "copied_pass_msg": "{} 的密码已复制",
+        "copied_note_msg": "{} 的备注已复制",
+        "language": "🌐 语言",
+        "by_minux": "Minux",
+        "show_password": "显示密码",
+        "cancel": "取消",
+        "ok": "确定",
+        "export": "📤 导出 JSON",
+        "import": "📥 导入 JSON",
+        "export_success": "导出完成！",
+        "export_msg": "密码已保存到文件：",
+        "import_success": "导入完成！",
+        "import_msg": "密码已从文件恢复",
+        "import_error": "导入错误",
+        "import_error_msg": "无法导入文件",
+        "theme": "主题",
+        "theme_light": "亮色",
+        "theme_dark": "暗色",
+        "theme_system": "系统",
+        "search_count": "找到: {}",
+        "csv_export": "📊 导出 CSV",
+        "csv_success": "CSV 导出完成！"
     }
 }
 
@@ -288,6 +506,12 @@ def get_system_language():
         if lang_code:
             if lang_code.startswith('ru'):
                 return "Русский"
+            elif lang_code.startswith('tr'):
+                return "Türkçe"
+            elif lang_code.startswith('de'):
+                return "Deutsch"
+            elif lang_code.startswith('zh'):
+                return "中文"
         return "English"
     except:
         return "English"
@@ -297,8 +521,8 @@ class PasswordManager:
     def __init__(self):
         self.window = ctk.CTk()
         self.window.title("ManagerPass")
-        self.window.geometry("1200x800")
-        self.window.minsize(1000, 700)
+        self.window.geometry("1400x800")
+        self.window.minsize(1200, 700)
         
         check_reset_key()
         
@@ -376,7 +600,6 @@ class PasswordManager:
         return result[0]
     
     def verify_master_password(self):
-        # Проверка блокировки при входе в метод
         if time.time() < self.blocked_until:
             remaining = int(self.blocked_until - time.time())
             self.show_message(self.lang_data["master_title"], self.lang_data["master_blocked"].format(remaining))
@@ -400,7 +623,6 @@ class PasswordManager:
         ok_btn = None
         
         def on_ok():
-            # Дополнительная проверка блокировки прямо перед проверкой
             if time.time() < self.blocked_until:
                 remaining = int(self.blocked_until - time.time())
                 error_label.configure(text=self.lang_data["master_blocked"].format(remaining))
@@ -483,6 +705,9 @@ class PasswordManager:
         self.export_btn = ctk.CTkButton(btn_right_frame, text="", command=self.export_passwords, width=100)
         self.export_btn.pack(side="left", padx=5)
         
+        self.csv_export_btn = ctk.CTkButton(btn_right_frame, text="", command=self.export_csv, width=100)
+        self.csv_export_btn.pack(side="left", padx=5)
+        
         self.import_btn = ctk.CTkButton(btn_right_frame, text="", command=self.import_passwords, width=100)
         self.import_btn.pack(side="left", padx=5)
         
@@ -494,12 +719,12 @@ class PasswordManager:
         
         self.site_label = ctk.CTkLabel(form_frame, text="")
         self.site_label.grid(row=0, column=0, padx=10, pady=8, sticky="w")
-        self.site_entry = ctk.CTkEntry(form_frame, width=320, placeholder_text="google.com")
+        self.site_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="google.com")
         self.site_entry.grid(row=0, column=1, padx=10, pady=8)
         
         self.login_label = ctk.CTkLabel(form_frame, text="")
         self.login_label.grid(row=1, column=0, padx=10, pady=8, sticky="w")
-        self.username_entry = ctk.CTkEntry(form_frame, width=320, placeholder_text="user@example.com")
+        self.username_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="user@example.com")
         self.username_entry.grid(row=1, column=1, padx=10, pady=8)
         
         self.password_label = ctk.CTkLabel(form_frame, text="")
@@ -508,7 +733,7 @@ class PasswordManager:
         password_row = ctk.CTkFrame(form_frame, fg_color="transparent")
         password_row.grid(row=2, column=1, padx=10, pady=8, sticky="w")
         
-        self.password_entry = ctk.CTkEntry(password_row, width=200, placeholder_text="••••••••", show="•")
+        self.password_entry = ctk.CTkEntry(password_row, width=180, placeholder_text="••••••••", show="•")
         self.password_entry.pack(side="left", padx=(0, 8))
         
         self.generate_btn = ctk.CTkButton(password_row, text="", width=70, command=self.generate_password)
@@ -517,14 +742,16 @@ class PasswordManager:
         self.show_pass_check = ctk.CTkCheckBox(password_row, text="", command=self.toggle_password_visibility)
         self.show_pass_check.pack(side="left")
         
+        self.note_label = ctk.CTkLabel(form_frame, text="")
+        self.note_label.grid(row=3, column=0, padx=10, pady=8, sticky="w")
+        self.note_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="Доп. информация")
+        self.note_entry.grid(row=3, column=1, padx=10, pady=8)
+        
         btn_frame = ctk.CTkFrame(self.main_frame)
         btn_frame.pack(fill="x", pady=(0, 15))
         
         self.add_btn = ctk.CTkButton(btn_frame, text="", command=self.add_password, width=120)
         self.add_btn.pack(side="left", padx=5)
-        
-        self.edit_btn = ctk.CTkButton(btn_frame, text="", command=self.edit_password, width=120)
-        self.edit_btn.pack(side="left", padx=5)
         
         self.delete_btn = ctk.CTkButton(btn_frame, text="", command=self.delete_password, width=120)
         self.delete_btn.pack(side="left", padx=5)
@@ -541,6 +768,9 @@ class PasswordManager:
         
         self.clear_search_btn = ctk.CTkButton(search_frame, text="", command=self.clear_search, width=80)
         self.clear_search_btn.pack(side="left", padx=5)
+        
+        self.search_count_label = ctk.CTkLabel(search_frame, text="", width=80)
+        self.search_count_label.pack(side="left", padx=5)
         
         self.list_label = ctk.CTkLabel(self.main_frame, text="", font=("Segoe UI", 14, "bold"))
         self.list_label.pack(anchor="w", pady=(0, 5))
@@ -566,16 +796,17 @@ class PasswordManager:
         self.settings_btn.configure(text=self.lang_data["settings"])
         self.lang_button.configure(text=f"{self.lang_data['language']} 🌐")
         self.export_btn.configure(text=self.lang_data["export"])
+        self.csv_export_btn.configure(text=self.lang_data["csv_export"])
         self.import_btn.configure(text=self.lang_data["import"])
         
         self.site_label.configure(text=self.lang_data["site"])
         self.login_label.configure(text=self.lang_data["login"])
         self.password_label.configure(text=self.lang_data["password"])
+        self.note_label.configure(text=self.lang_data["note"])
         self.generate_btn.configure(text=self.lang_data["generate"])
         self.show_pass_check.configure(text=self.lang_data["show_password"])
         
         self.add_btn.configure(text=self.lang_data["add"])
-        self.edit_btn.configure(text=self.lang_data["edit"])
         self.delete_btn.configure(text=self.lang_data["delete"])
         
         self.search_label.configure(text=self.lang_data["search"])
@@ -618,7 +849,10 @@ class PasswordManager:
         
         items = self.passwords.items()
         if search_text:
-            items = [(s, d) for s, d in items if search_text in s.lower() or search_text in d.get('username', '').lower()]
+            items = [(s, d) for s, d in items if search_text in s.lower() or search_text in d.get('username', '').lower() or search_text in d.get('note', '').lower()]
+        
+        count = len(items)
+        self.search_count_label.configure(text=self.lang_data["search_count"].format(count) if search_text else "")
         
         if not items:
             empty_label = ctk.CTkLabel(self.tree_frame, text=self.lang_data["empty"], text_color="gray")
@@ -627,38 +861,47 @@ class PasswordManager:
         
         header = ctk.CTkFrame(self.tree_frame)
         header.pack(fill="x", pady=(0, 5))
-        ctk.CTkLabel(header, text=self.lang_data["site_header"], font=("Segoe UI", 12, "bold"), width=350).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text=self.lang_data["login_header"], font=("Segoe UI", 12, "bold"), width=300).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text=self.lang_data["password_header"], font=("Segoe UI", 12, "bold"), width=250).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text="", width=160).pack(side="left")
+        ctk.CTkLabel(header, text=self.lang_data["site_header"], font=("Segoe UI", 12, "bold"), width=280).pack(side="left", padx=5)
+        ctk.CTkLabel(header, text=self.lang_data["login_header"], font=("Segoe UI", 12, "bold"), width=220).pack(side="left", padx=5)
+        ctk.CTkLabel(header, text=self.lang_data["password_header"], font=("Segoe UI", 12, "bold"), width=180).pack(side="left", padx=5)
+        ctk.CTkLabel(header, text=self.lang_data["note_header"], font=("Segoe UI", 12, "bold"), width=200).pack(side="left", padx=5)
+        ctk.CTkLabel(header, text="", width=120).pack(side="left")
         
         for site, data in items:
             row = ctk.CTkFrame(self.tree_frame)
             row.pack(fill="x", pady=2)
             
             site_var = ctk.StringVar(value=site)
-            site_entry = ctk.CTkEntry(row, textvariable=site_var, width=350)
+            site_entry = ctk.CTkEntry(row, textvariable=site_var, width=280)
             site_entry.pack(side="left", padx=5)
             site_entry.bind("<FocusOut>", lambda e, s=site, var=site_var: self.edit_cell(s, "site", var.get()))
             
-            login_var = ctk.StringVar(value=data['username'])
-            login_entry = ctk.CTkEntry(row, textvariable=login_var, width=300)
+            login_var = ctk.StringVar(value=data.get('username', ''))
+            login_entry = ctk.CTkEntry(row, textvariable=login_var, width=220)
             login_entry.pack(side="left", padx=5)
             login_entry.bind("<FocusOut>", lambda e, s=site, var=login_var: self.edit_cell(s, "login", var.get()))
             
-            password_var = ctk.StringVar(value=data['password'])
-            password_entry = ctk.CTkEntry(row, textvariable=password_var, width=250, show="•")
+            password_var = ctk.StringVar(value=data.get('password', ''))
+            password_entry = ctk.CTkEntry(row, textvariable=password_var, width=180, show="•")
             password_entry.pack(side="left", padx=5)
             password_entry.bind("<FocusOut>", lambda e, s=site, var=password_var: self.edit_cell(s, "password", var.get()))
+            
+            note_var = ctk.StringVar(value=data.get('note', ''))
+            note_entry = ctk.CTkEntry(row, textvariable=note_var, width=200)
+            note_entry.pack(side="left", padx=5)
+            note_entry.bind("<FocusOut>", lambda e, s=site, var=note_var: self.edit_cell(s, "note", var.get()))
             
             btn_frame = ctk.CTkFrame(row, fg_color="transparent")
             btn_frame.pack(side="left", padx=5)
             
-            copy_login_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_login"], width=70, command=lambda s=site, u=data['username']: self.copy_login(s, u))
+            copy_login_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_login"], width=70, command=lambda s=site, u=data.get('username', ''): self.copy_login(s, u))
             copy_login_btn.pack(side="left", padx=2)
             
-            copy_pass_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_password"], width=70, command=lambda s=site, p=data['password']: self.copy_password(s, p))
+            copy_pass_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_password"], width=70, command=lambda s=site, p=data.get('password', ''): self.copy_password(s, p))
             copy_pass_btn.pack(side="left", padx=2)
+            
+            copy_note_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_note"], width=70, command=lambda s=site, n=data.get('note', ''): self.copy_note(s, n))
+            copy_note_btn.pack(side="left", padx=2)
     
     def edit_cell(self, site, field, new_value):
         if site in self.passwords:
@@ -671,6 +914,8 @@ class PasswordManager:
             elif field == "password":
                 self.passwords[site]['password'] = new_value
                 self.check_and_warn_weak_password(new_value)
+            elif field == "note":
+                self.passwords[site]['note'] = new_value
             save_passwords(self.passwords)
             self.refresh_list()
     
@@ -684,10 +929,16 @@ class PasswordManager:
         self.window.clipboard_append(password)
         self.show_message(self.lang_data["copied"], self.lang_data["copied_pass_msg"].format(site))
     
+    def copy_note(self, site, note):
+        self.window.clipboard_clear()
+        self.window.clipboard_append(note)
+        self.show_message(self.lang_data["copied"], self.lang_data["copied_note_msg"].format(site))
+    
     def add_password(self):
         site = self.site_entry.get().strip()
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
+        note = self.note_entry.get().strip()
         
         if not site:
             self.show_message(self.lang_data["error_empty_site"], self.lang_data["error_empty_site_msg"])
@@ -701,6 +952,7 @@ class PasswordManager:
         self.passwords[site] = {
             "username": username,
             "password": password,
+            "note": note,
             "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
         }
         save_passwords(self.passwords)
@@ -708,81 +960,10 @@ class PasswordManager:
         self.site_entry.delete(0, "end")
         self.username_entry.delete(0, "end")
         self.password_entry.delete(0, "end")
+        self.note_entry.delete(0, "end")
         
         self.refresh_list()
         self.show_message(self.lang_data["success"], self.lang_data["saved_msg"].format(site))
-    
-    def edit_password(self):
-        if not self.passwords:
-            self.show_message(self.lang_data["error_empty_site"], "Нет паролей")
-            return
-        
-        sites = list(self.passwords.keys())
-        dialog = ctk.CTkToplevel(self.window)
-        dialog.title(self.lang_data["edit_title"])
-        dialog.geometry("350x200")
-        dialog.grab_set()
-        dialog.transient(self.window)
-        
-        ctk.CTkLabel(dialog, text=self.lang_data["select_site"]).pack(pady=10)
-        combo = ctk.CTkComboBox(dialog, values=sites)
-        combo.pack(pady=5)
-        
-        def confirm():
-            site = combo.get()
-            if site:
-                dialog.destroy()
-                self.show_edit_dialog(site)
-        
-        ctk.CTkButton(dialog, text=self.lang_data["edit"], command=confirm).pack(pady=10)
-        ctk.CTkButton(dialog, text=self.lang_data["cancel"], command=dialog.destroy).pack(pady=5)
-    
-    def show_edit_dialog(self, site):
-        data = self.passwords[site]
-        dialog = ctk.CTkToplevel(self.window)
-        dialog.title(f"{self.lang_data['edit_title']}: {site}")
-        dialog.geometry("500x450")
-        dialog.grab_set()
-        dialog.transient(self.window)
-        
-        ctk.CTkLabel(dialog, text=self.lang_data["edit_site"]).pack(anchor="w", padx=10, pady=(10,0))
-        site_entry = ctk.CTkEntry(dialog, width=450)
-        site_entry.insert(0, site)
-        site_entry.pack(padx=10, pady=5)
-        
-        ctk.CTkLabel(dialog, text=self.lang_data["edit_login"]).pack(anchor="w", padx=10)
-        username_entry = ctk.CTkEntry(dialog, width=450)
-        username_entry.insert(0, data['username'])
-        username_entry.pack(padx=10, pady=5)
-        
-        ctk.CTkLabel(dialog, text=self.lang_data["edit_password"]).pack(anchor="w", padx=10)
-        password_entry = ctk.CTkEntry(dialog, width=450)
-        password_entry.insert(0, data['password'])
-        password_entry.pack(padx=10, pady=5)
-        
-        def save():
-            new_site = site_entry.get().strip()
-            new_username = username_entry.get().strip()
-            new_password = password_entry.get().strip()
-            if not new_site or not new_password:
-                return
-            
-            if new_password != data['password']:
-                self.check_and_warn_weak_password(new_password)
-            
-            del self.passwords[site]
-            self.passwords[new_site] = {
-                "username": new_username,
-                "password": new_password,
-                "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
-            }
-            save_passwords(self.passwords)
-            self.refresh_list()
-            dialog.destroy()
-            self.show_message(self.lang_data["success"], self.lang_data["updated_msg"])
-        
-        ctk.CTkButton(dialog, text=self.lang_data["save"], command=save).pack(pady=15)
-        ctk.CTkButton(dialog, text=self.lang_data["cancel"], command=dialog.destroy).pack(pady=5)
     
     def delete_password(self):
         if not self.passwords:
@@ -947,7 +1128,7 @@ class PasswordManager:
         
         dialog = ctk.CTkToplevel(self.settings_window)
         dialog.title(self.lang_data["master_change"])
-        dialog.geometry("400x300")
+        dialog.geometry("400x380")
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_title"]).pack(pady=10)
@@ -962,24 +1143,30 @@ class PasswordManager:
         confirm_entry = ctk.CTkEntry(dialog, show="•", width=250)
         confirm_entry.pack(pady=5)
         
+        error_label = ctk.CTkLabel(dialog, text="", text_color="red")
+        error_label.pack(pady=5)
+        
         def change_it():
             old = old_entry.get()
             if not verify_master(old):
-                self.show_error_dialog(self.lang_data["master_wrong"])
+                error_label.configure(text=self.lang_data["master_wrong"])
                 return
             p1 = new_entry.get()
             p2 = confirm_entry.get()
             if p1 != p2:
-                self.show_error_dialog(self.lang_data["master_mismatch"])
+                error_label.configure(text=self.lang_data["master_mismatch"])
                 return
             if not p1:
+                error_label.configure(text="Введите пароль")
                 return
             set_master_password(p1)
             dialog.destroy()
             self.show_message(self.lang_data["success"], self.lang_data["master_changed"])
         
-        ctk.CTkButton(dialog, text=self.lang_data["save"], command=change_it).pack(pady=15)
-        ctk.CTkButton(dialog, text=self.lang_data["cancel"], command=dialog.destroy).pack()
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=15)
+        ctk.CTkButton(btn_frame, text=self.lang_data["ok"], command=change_it, width=100).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text=self.lang_data["cancel"], command=dialog.destroy, width=100).pack(side="left", padx=10)
     
     def show_error_dialog(self, message):
         dialog = ctk.CTkToplevel(self.window)
@@ -1001,6 +1188,29 @@ class PasswordManager:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     json.dump(self.passwords, f, ensure_ascii=False, indent=4)
                 self.show_message(self.lang_data["export_success"], f"{self.lang_data['export_msg']}\n{file_path}")
+            except Exception as e:
+                self.show_message(self.lang_data["import_error"], str(e))
+    
+    def export_csv(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile="passwords_export.csv"
+        )
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8-sig', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Site", "Username", "Password", "Note", "Date Added"])
+                    for site, data in self.passwords.items():
+                        writer.writerow([
+                            site,
+                            data.get('username', ''),
+                            data.get('password', ''),
+                            data.get('note', ''),
+                            data.get('date_added', '')
+                        ])
+                self.show_message(self.lang_data["csv_success"], f"{self.lang_data['export_msg']}\n{file_path}")
             except Exception as e:
                 self.show_message(self.lang_data["import_error"], str(e))
     
