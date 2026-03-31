@@ -7,6 +7,7 @@ import string
 import hashlib
 import time
 import csv
+import shutil
 from datetime import datetime
 from tkinter import filedialog
 from cryptography.fernet import Fernet
@@ -19,10 +20,18 @@ DATA_FILE = os.path.join(DATA_FOLDER, "passwords.enc")
 KEY_FILE = os.path.join(DATA_FOLDER, "key.key")
 MASTER_HASH_FILE = os.path.join(DATA_FOLDER, "master.hash")
 RESET_KEY_FILE = "master_reset.key"
+BACKUP_FOLDER = os.path.join(os.path.expanduser("~"), "Documents", "ManagerPassBackup")
+BACKUP_LIMIT = 5
 
 if not os.path.exists(DATA_FOLDER):
     try:
         os.makedirs(DATA_FOLDER)
+    except:
+        pass
+
+if not os.path.exists(BACKUP_FOLDER):
+    try:
+        os.makedirs(BACKUP_FOLDER)
     except:
         pass
 
@@ -66,6 +75,27 @@ def save_passwords(passwords):
     encrypted = encrypt_data(passwords, key)
     with open(DATA_FILE, 'wb') as f:
         f.write(encrypted)
+    create_backup()
+
+def create_backup():
+    """Создаёт резервную копию паролей и ключа"""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        backup_file = os.path.join(BACKUP_FOLDER, f"passwords_{timestamp}.enc")
+        key_backup_file = os.path.join(BACKUP_FOLDER, f"key_{timestamp}.key")
+        
+        shutil.copy2(DATA_FILE, backup_file)
+        shutil.copy2(KEY_FILE, key_backup_file)
+        
+        # Очищаем старые копии
+        files = sorted([f for f in os.listdir(BACKUP_FOLDER) if f.startswith("passwords_")])
+        for f in files[:-BACKUP_LIMIT]:
+            os.remove(os.path.join(BACKUP_FOLDER, f))
+        files = sorted([f for f in os.listdir(BACKUP_FOLDER) if f.startswith("key_")])
+        for f in files[:-BACKUP_LIMIT]:
+            os.remove(os.path.join(BACKUP_FOLDER, f))
+    except:
+        pass
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -204,7 +234,8 @@ LANGUAGES = {
         "theme_system": "Системная",
         "search_count": "Найдено: {}",
         "csv_export": "📊 Экспорт CSV",
-        "csv_success": "Экспорт в CSV выполнен!"
+        "csv_success": "Экспорт в CSV выполнен!",
+        "saved_notification": "Пароль сохранён"
     },
     "English": {
         "title": "Password Manager",
@@ -277,7 +308,8 @@ LANGUAGES = {
         "theme_system": "System",
         "search_count": "Found: {}",
         "csv_export": "📊 Export CSV",
-        "csv_success": "CSV export completed!"
+        "csv_success": "CSV export completed!",
+        "saved_notification": "Password saved"
     },
     "Türkçe": {
         "title": "Şifre Yöneticisi",
@@ -350,7 +382,8 @@ LANGUAGES = {
         "theme_system": "Sistem",
         "search_count": "Bulunan: {}",
         "csv_export": "📊 CSV'ye Aktar",
-        "csv_success": "CSV dışa aktarma tamamlandı!"
+        "csv_success": "CSV dışa aktarma tamamlandı!",
+        "saved_notification": "Şifre kaydedildi"
     },
     "Deutsch": {
         "title": "Passwort-Manager",
@@ -423,7 +456,8 @@ LANGUAGES = {
         "theme_system": "System",
         "search_count": "Gefunden: {}",
         "csv_export": "📊 CSV-Export",
-        "csv_success": "CSV-Export abgeschlossen!"
+        "csv_success": "CSV-Export abgeschlossen!",
+        "saved_notification": "Passwort gespeichert"
     },
     "中文": {
         "title": "密码管理器",
@@ -496,7 +530,8 @@ LANGUAGES = {
         "theme_system": "系统",
         "search_count": "找到: {}",
         "csv_export": "📊 导出 CSV",
-        "csv_success": "CSV 导出完成！"
+        "csv_success": "CSV 导出完成！",
+        "saved_notification": "密码已保存"
     }
 }
 
@@ -532,6 +567,7 @@ class PasswordManager:
         
         self.login_attempts = 0
         self.blocked_until = 0
+        self.notification_window = None
         
         if not self.authenticate_master():
             self.window.destroy()
@@ -543,6 +579,34 @@ class PasswordManager:
         self.refresh_list()
         self.update_ui_texts()
         self.apply_theme()
+        
+        # Привязываем обработчик закрытия окна
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def on_closing(self):
+        """Сохраняет пароли при закрытии окна"""
+        save_passwords(self.passwords)
+        self.show_notification(self.lang_data["saved_notification"])
+        self.window.destroy()
+    
+    def show_notification(self, message):
+        """Показывает всплывающее уведомление"""
+        if self.notification_window and self.notification_window.winfo_exists():
+            self.notification_window.destroy()
+        
+        self.notification_window = ctk.CTkToplevel(self.window)
+        self.notification_window.title("")
+        self.notification_window.geometry("300x60")
+        self.notification_window.overrideredirect(True)
+        
+        # Позиционируем в правом нижнем углу
+        x = self.window.winfo_x() + self.window.winfo_width() - 310
+        y = self.window.winfo_y() + self.window.winfo_height() - 80
+        self.notification_window.geometry(f"+{x}+{y}")
+        
+        ctk.CTkLabel(self.notification_window, text=message, font=("Segoe UI", 12)).pack(pady=15)
+        
+        self.notification_window.after(2000, self.notification_window.destroy)
     
     def authenticate_master(self):
         if not is_master_set():
@@ -918,21 +982,22 @@ class PasswordManager:
                 self.passwords[site]['note'] = new_value
             save_passwords(self.passwords)
             self.refresh_list()
+            self.show_notification(self.lang_data["saved_notification"])
     
     def copy_login(self, site, login):
         self.window.clipboard_clear()
         self.window.clipboard_append(login)
-        self.show_message(self.lang_data["copied"], self.lang_data["copied_login_msg"].format(site))
+        self.show_notification(self.lang_data["copied_login_msg"].format(site))
     
     def copy_password(self, site, password):
         self.window.clipboard_clear()
         self.window.clipboard_append(password)
-        self.show_message(self.lang_data["copied"], self.lang_data["copied_pass_msg"].format(site))
+        self.show_notification(self.lang_data["copied_pass_msg"].format(site))
     
     def copy_note(self, site, note):
         self.window.clipboard_clear()
         self.window.clipboard_append(note)
-        self.show_message(self.lang_data["copied"], self.lang_data["copied_note_msg"].format(site))
+        self.show_notification(self.lang_data["copied_note_msg"].format(site))
     
     def add_password(self):
         site = self.site_entry.get().strip()
@@ -963,7 +1028,7 @@ class PasswordManager:
         self.note_entry.delete(0, "end")
         
         self.refresh_list()
-        self.show_message(self.lang_data["success"], self.lang_data["saved_msg"].format(site))
+        self.show_notification(self.lang_data["saved_msg"].format(site))
     
     def delete_password(self):
         if not self.passwords:
@@ -1003,7 +1068,7 @@ class PasswordManager:
                 save_passwords(self.passwords)
                 self.refresh_list()
                 confirm_dialog.destroy()
-                self.show_message(self.lang_data["success"], self.lang_data["deleted_msg"].format(site))
+                self.show_notification(self.lang_data["deleted_msg"].format(site))
             
             ctk.CTkButton(btn_frame, text="✅ Да", command=do_delete, width=80).pack(side="left", padx=15)
             ctk.CTkButton(btn_frame, text="❌ Нет", command=confirm_dialog.destroy, width=80).pack(side="left", padx=15)
@@ -1047,7 +1112,7 @@ class PasswordManager:
                     def do_disable():
                         remove_master_password()
                         confirm.destroy()
-                        self.show_message(self.lang_data["success"], self.lang_data["master_removed"])
+                        self.show_notification(self.lang_data["master_removed"])
                         self.master_switch_var.set(False)
                         self.master_switch.configure(text=self.lang_data["master_disabled"])
                     
@@ -1116,7 +1181,7 @@ class PasswordManager:
             set_master_password(p1)
             self.master_switch.configure(text=self.lang_data["master_enabled"])
             dialog.destroy()
-            self.show_message(self.lang_data["success"], self.lang_data["master_success"])
+            self.show_notification(self.lang_data["master_success"])
         
         ctk.CTkButton(dialog, text=self.lang_data["ok"], command=set_it).pack(pady=15)
         ctk.CTkButton(dialog, text=self.lang_data["cancel"], command=dialog.destroy).pack()
@@ -1161,7 +1226,7 @@ class PasswordManager:
                 return
             set_master_password(p1)
             dialog.destroy()
-            self.show_message(self.lang_data["success"], self.lang_data["master_changed"])
+            self.show_notification(self.lang_data["master_changed"])
         
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         btn_frame.pack(pady=15)
@@ -1187,7 +1252,7 @@ class PasswordManager:
             try:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     json.dump(self.passwords, f, ensure_ascii=False, indent=4)
-                self.show_message(self.lang_data["export_success"], f"{self.lang_data['export_msg']}\n{file_path}")
+                self.show_notification(self.lang_data["export_success"])
             except Exception as e:
                 self.show_message(self.lang_data["import_error"], str(e))
     
@@ -1210,7 +1275,7 @@ class PasswordManager:
                             data.get('note', ''),
                             data.get('date_added', '')
                         ])
-                self.show_message(self.lang_data["csv_success"], f"{self.lang_data['export_msg']}\n{file_path}")
+                self.show_notification(self.lang_data["csv_success"])
             except Exception as e:
                 self.show_message(self.lang_data["import_error"], str(e))
     
@@ -1225,7 +1290,7 @@ class PasswordManager:
                 self.passwords.update(imported)
                 save_passwords(self.passwords)
                 self.refresh_list()
-                self.show_message(self.lang_data["import_success"], self.lang_data["import_msg"])
+                self.show_notification(self.lang_data["import_success"])
             except Exception as e:
                 self.show_message(self.lang_data["import_error"], self.lang_data["import_error_msg"])
     
