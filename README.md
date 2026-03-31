@@ -7,21 +7,6 @@ DESCRIPTION
     A simple and secure password manager with a modern interface.
     All data is stored locally on your computer.
 
-FEATURES
-    • 5 interface languages (Russian, English, Turkish, German, Chinese)
-    • Master password to protect all entries
-    • Strong password generator
-    • Weak password detection (1234, qwerty, etc.)
-    • Copy login and password separately
-    • Export and import all passwords (JSON)
-    • Show/hide password
-    • System theme (light/dark follows Windows settings)
-    - Manually switch between themes
-    - Search for passwords by site name or login
-    - Edit site, login, password directly in the table
-    - 30-second lockout after 3 failed attempts to enter the master-password
-    • No Python installation required (ready-to-use .exe included)
-
 INSTALLATION
     Run ManagerPass.exe — the program is ready to use.
     No additional installation required.
