@@ -78,7 +78,6 @@ def save_passwords(passwords):
     create_backup()
 
 def create_backup():
-    """Создаёт резервную копию паролей и ключа"""
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         backup_file = os.path.join(BACKUP_FOLDER, f"passwords_{timestamp}.enc")
@@ -87,7 +86,6 @@ def create_backup():
         shutil.copy2(DATA_FILE, backup_file)
         shutil.copy2(KEY_FILE, key_backup_file)
         
-        # Очищаем старые копии
         files = sorted([f for f in os.listdir(BACKUP_FOLDER) if f.startswith("passwords_")])
         for f in files[:-BACKUP_LIMIT]:
             os.remove(os.path.join(BACKUP_FOLDER, f))
@@ -532,6 +530,80 @@ LANGUAGES = {
         "csv_export": "📊 导出 CSV",
         "csv_success": "CSV 导出完成！",
         "saved_notification": "密码已保存"
+    },
+    "Français": {
+        "title": "Gestionnaire de mots de passe",
+        "settings": "⚙️ Paramètres",
+        "master_password": "Mot de passe maître",
+        "master_enabled": "Activer le mot de passe maître",
+        "master_disabled": "Désactiver le mot de passe maître",
+        "master_change": "Changer le mot de passe maître",
+        "master_forgot": "Mot de passe maître oublié ?",
+        "master_forgot_help": "Fichier clé créé. Redémarrez le programme.",
+        "master_title": "Entrez le mot de passe maître",
+        "master_first": "Créez un mot de passe maître",
+        "master_confirm": "Confirmez le mot de passe",
+        "master_mismatch": "Les mots de passe ne correspondent pas",
+        "master_wrong": "Mot de passe maître incorrect",
+        "master_success": "Mot de passe maître défini !",
+        "master_removed": "Mot de passe maître désactivé !",
+        "master_changed": "Mot de passe maître modifié !",
+        "master_blocked": "Trop de tentatives. Attendez {} secondes.",
+        "site": "Site / Service :",
+        "login": "Identifiant :",
+        "password": "Mot de passe :",
+        "note": "Notes :",
+        "generate": "🎲 Générer",
+        "add": "➕ Ajouter",
+        "delete": "🗑️ Supprimer",
+        "saved_passwords": "Mots de passe enregistrés",
+        "search": "Rechercher :",
+        "clear_search": "Effacer",
+        "empty": "Aucun mot de passe enregistré",
+        "site_header": "Site / Service",
+        "login_header": "Identifiant",
+        "password_header": "Mot de passe",
+        "note_header": "Notes",
+        "copy_login": "📋 Identifiant",
+        "copy_password": "📋 Mot de passe",
+        "copy_note": "📋 Note",
+        "error_empty_site": "Erreur",
+        "error_empty_site_msg": "Entrez le nom du site",
+        "error_empty_password": "Erreur",
+        "error_empty_password_msg": "Entrez le mot de passe",
+        "weak_password_warning": "⚠️ Mot de passe faible",
+        "weak_password_msg": "Ce mot de passe est trop simple. Utilisez un mot de passe plus fort.",
+        "success": "Succès",
+        "saved_msg": "Mot de passe pour {} enregistré !",
+        "select_delete": "Sélectionnez le site à supprimer :",
+        "confirm_delete": "Confirmation",
+        "confirm_delete_msg": "Supprimer le mot de passe pour {} ?",
+        "deleted_msg": "Mot de passe pour {} supprimé !",
+        "copied": "Copié",
+        "copied_login_msg": "Identifiant pour {} copié",
+        "copied_pass_msg": "Mot de passe pour {} copié",
+        "copied_note_msg": "Note pour {} copiée",
+        "language": "🌐 Langue",
+        "by_minux": "By Minux",
+        "show_password": "Afficher le mot de passe",
+        "cancel": "Annuler",
+        "ok": "OK",
+        "export": "📤 Exporter JSON",
+        "import": "📥 Importer JSON",
+        "export_success": "Exportation terminée !",
+        "export_msg": "Mots de passe enregistrés dans le fichier :",
+        "import_success": "Importation terminée !",
+        "import_msg": "Mots de passe restaurés depuis le fichier",
+        "import_error": "Erreur d'importation",
+        "import_error_msg": "Impossible d'importer le fichier",
+        "theme": "Thème",
+        "theme_light": "Clair",
+        "theme_dark": "Sombre",
+        "theme_system": "Système",
+        "search_count": "Trouvé : {}",
+        "csv_export": "📊 Exporter CSV",
+        "csv_success": "Exportation CSV terminée !",
+        "saved_notification": "Mot de passe enregistré"
     }
 }
 
@@ -547,6 +619,8 @@ def get_system_language():
                 return "Deutsch"
             elif lang_code.startswith('zh'):
                 return "中文"
+            elif lang_code.startswith('fr'):
+                return "Français"
         return "English"
     except:
         return "English"
@@ -580,17 +654,26 @@ class PasswordManager:
         self.update_ui_texts()
         self.apply_theme()
         
-        # Привязываем обработчик закрытия окна
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.setup_hotkeys()
+    
+    def setup_hotkeys(self):
+        """Настройка горячих клавиш"""
+        self.window.bind("<Control-n>", lambda e: self.add_password())
+        self.window.bind("<Control-f>", lambda e: self.search_entry.focus_set())
+    
+    def close_focused_dialog(self):
+        """Закрывает активное диалоговое окно, если оно есть"""
+        focused = self.window.focus_get()
+        if focused and isinstance(focused, ctk.CTkToplevel):
+            focused.destroy()
     
     def on_closing(self):
-        """Сохраняет пароли при закрытии окна"""
         save_passwords(self.passwords)
         self.show_notification(self.lang_data["saved_notification"])
         self.window.destroy()
     
     def show_notification(self, message):
-        """Показывает всплывающее уведомление"""
         if self.notification_window and self.notification_window.winfo_exists():
             self.notification_window.destroy()
         
@@ -599,13 +682,11 @@ class PasswordManager:
         self.notification_window.geometry("300x60")
         self.notification_window.overrideredirect(True)
         
-        # Позиционируем в правом нижнем углу
         x = self.window.winfo_x() + self.window.winfo_width() - 310
         y = self.window.winfo_y() + self.window.winfo_height() - 80
         self.notification_window.geometry(f"+{x}+{y}")
         
         ctk.CTkLabel(self.notification_window, text=message, font=("Segoe UI", 12)).pack(pady=15)
-        
         self.notification_window.after(2000, self.notification_window.destroy)
     
     def authenticate_master(self):
@@ -1145,6 +1226,7 @@ class PasswordManager:
         def set_theme(theme):
             self.current_theme = theme
             self.apply_theme()
+            self.window.focus_force()
         
         theme_light_btn = ctk.CTkButton(theme_frame, text=self.lang_data["theme_light"], command=lambda: set_theme("light"), width=120)
         theme_light_btn.pack(side="left", padx=10)
