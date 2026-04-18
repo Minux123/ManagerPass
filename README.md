@@ -1,25 +1,16 @@
 # ManagerPass
-NAME
-    ManagerPass v1.0 — Password Manager
-    Author: Minux123
 
-DESCRIPTION
-    A simple and secure password manager with a modern interface.
-    All data is stored locally on your computer.
+Welcome to ManagerPass! This is a fully local password manager with 6 languages (including Chinese), notes, import, export and more!
 
-INSTALLATION
-    Run ManagerPass.exe — the program is ready to use.
-    No additional installation required.
+To run the program, just download the latest release and open the .exe file. 
 
-RESET MASTER PASSWORD
-    If you forgot your master password:
-        1. On the password entry screen, click "Forgot master password?"
-        2. A key file is created in the Documents folder
-        3. Restart the program — the master password will be removed
-        4. Create a new master password on next launch
-
-SYSTEM REQUIREMENTS
-    • Windows 10 / Windows 11
-    • No additional software required
+To run the source code, you need:
+- Python 3.9+ (recommended 3.11+)
+- Cryptography
+- CustomTkinter
+- Other libraries are already installed with python
 
 Icons: Twitter Twemoji (CC-BY 4.0)
+
+# DOWNLOAD NOW!
+it's very simple!
