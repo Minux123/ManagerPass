@@ -8,10 +8,12 @@ import hashlib
 import time
 import csv
 import shutil
+import secrets
 from datetime import datetime
 from tkinter import filedialog
 from cryptography.fernet import Fernet
 
+# Настройки приложения
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
 
@@ -22,20 +24,20 @@ MASTER_HASH_FILE = os.path.join(DATA_FOLDER, "master.hash")
 RESET_KEY_FILE = "master_reset.key"
 BACKUP_FOLDER = os.path.join(os.path.expanduser("~"), "Documents", "ManagerPassBackup")
 BACKUP_LIMIT = 5
+SETTINGS_FILE = os.path.join(DATA_FOLDER, "settings.json")
 
-if not os.path.exists(DATA_FOLDER):
-    try:
-        os.makedirs(DATA_FOLDER)
-    except:
-        pass
+# Создание папок
+for folder in [DATA_FOLDER, BACKUP_FOLDER]:
+    if not os.path.exists(folder):
+        try:
+            os.makedirs(folder)
+        except:
+            pass
 
-if not os.path.exists(BACKUP_FOLDER):
-    try:
-        os.makedirs(BACKUP_FOLDER)
-    except:
-        pass
+# ------------------------------------------------------------
+# Шифрование и работа с данными
+# ------------------------------------------------------------
 
-# ==================== ШИФРОВАНИЕ ====================
 def get_or_create_key():
     if not os.path.exists(DATA_FOLDER):
         os.makedirs(DATA_FOLDER)
@@ -68,7 +70,7 @@ def load_passwords():
             encrypted = f.read()
         return decrypt_data(encrypted, key)
     except:
-        return {}
+        return {"_corrupted": True}
 
 def save_passwords(passwords):
     key = get_or_create_key()
@@ -83,8 +85,10 @@ def create_backup():
         backup_file = os.path.join(BACKUP_FOLDER, f"passwords_{timestamp}.enc")
         key_backup_file = os.path.join(BACKUP_FOLDER, f"key_{timestamp}.key")
         
-        shutil.copy2(DATA_FILE, backup_file)
-        shutil.copy2(KEY_FILE, key_backup_file)
+        if os.path.exists(DATA_FILE):
+            shutil.copy2(DATA_FILE, backup_file)
+        if os.path.exists(KEY_FILE):
+            shutil.copy2(KEY_FILE, key_backup_file)
         
         files = sorted([f for f in os.listdir(BACKUP_FOLDER) if f.startswith("passwords_")])
         for f in files[:-BACKUP_LIMIT]:
@@ -95,8 +99,30 @@ def create_backup():
     except:
         pass
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f)
+
+# ------------------------------------------------------------
+# Мастер-пароль (с солью и миграцией)
+# ------------------------------------------------------------
+
+def hash_password(password, salt=None):
+    if salt is None:
+        salt = secrets.token_bytes(16)
+    else:
+        salt = bytes.fromhex(salt)
+    key = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 200000)
+    return key.hex(), salt.hex()
 
 def is_master_set():
     return os.path.exists(MASTER_HASH_FILE)
@@ -105,12 +131,28 @@ def verify_master(password):
     if not is_master_set():
         return True
     with open(MASTER_HASH_FILE, 'r') as f:
-        saved_hash = f.read().strip()
-    return hash_password(password) == saved_hash
+        content = f.read().strip()
+    
+    if len(content) == 64 and ':' not in content:
+        saved_hash = content
+        if hashlib.sha256(password.encode()).hexdigest() == saved_hash:
+            new_hash, salt = hash_password(password)
+            with open(MASTER_HASH_FILE, 'w') as f:
+                f.write(f"{new_hash}:{salt}")
+            return True
+        return False
+    
+    if ':' in content:
+        saved_hash, salt = content.split(':')
+        computed_hash, _ = hash_password(password, salt)
+        return computed_hash == saved_hash
+    
+    return False
 
 def set_master_password(password):
+    new_hash, salt = hash_password(password)
     with open(MASTER_HASH_FILE, 'w') as f:
-        f.write(hash_password(password))
+        f.write(f"{new_hash}:{salt}")
 
 def remove_master_password():
     if os.path.exists(MASTER_HASH_FILE):
@@ -134,7 +176,10 @@ def create_reset_key():
         f.write("reset")
     return reset_path
 
-# ==================== СПИСОК СЛАБЫХ ПАРОЛЕЙ ====================
+# ------------------------------------------------------------
+# Генерация и проверка паролей
+# ------------------------------------------------------------
+
 WEAK_PASSWORDS = [
     "1234", "12345", "123456", "1234567", "12345678", "123456789",
     "1111", "11111", "111111", "0000", "00000", "000000",
@@ -159,7 +204,10 @@ def generate_strong_password(length=12):
     password = ''.join(random.choice(chars) for _ in range(length))
     return password
 
-# ==================== ПЕРЕВОДЫ ====================
+# ------------------------------------------------------------
+# Переводы
+# ------------------------------------------------------------
+
 LANGUAGES = {
     "Русский": {
         "title": "Менеджер паролей",
@@ -233,7 +281,12 @@ LANGUAGES = {
         "search_count": "Найдено: {}",
         "csv_export": "📊 Экспорт CSV",
         "csv_success": "Экспорт в CSV выполнен!",
-        "saved_notification": "Пароль сохранён"
+        "saved_notification": "Пароль сохранён",
+        "strength_very_weak": "Очень слабый",
+        "strength_weak": "Слабый",
+        "strength_medium": "Средний",
+        "strength_good": "Хороший",
+        "strength_excellent": "Отличный",
     },
     "English": {
         "title": "Password Manager",
@@ -307,7 +360,12 @@ LANGUAGES = {
         "search_count": "Found: {}",
         "csv_export": "📊 Export CSV",
         "csv_success": "CSV export completed!",
-        "saved_notification": "Password saved"
+        "saved_notification": "Password saved",
+        "strength_very_weak": "Very Weak",
+        "strength_weak": "Weak",
+        "strength_medium": "Medium",
+        "strength_good": "Good",
+        "strength_excellent": "Excellent",
     },
     "Türkçe": {
         "title": "Şifre Yöneticisi",
@@ -381,7 +439,12 @@ LANGUAGES = {
         "search_count": "Bulunan: {}",
         "csv_export": "📊 CSV'ye Aktar",
         "csv_success": "CSV dışa aktarma tamamlandı!",
-        "saved_notification": "Şifre kaydedildi"
+        "saved_notification": "Şifre kaydedildi",
+        "strength_very_weak": "Çok Zayıf",
+        "strength_weak": "Zayıf",
+        "strength_medium": "Orta",
+        "strength_good": "İyi",
+        "strength_excellent": "Mükemmel",
     },
     "Deutsch": {
         "title": "Passwort-Manager",
@@ -455,7 +518,12 @@ LANGUAGES = {
         "search_count": "Gefunden: {}",
         "csv_export": "📊 CSV-Export",
         "csv_success": "CSV-Export abgeschlossen!",
-        "saved_notification": "Passwort gespeichert"
+        "saved_notification": "Passwort gespeichert",
+        "strength_very_weak": "Sehr schwach",
+        "strength_weak": "Schwach",
+        "strength_medium": "Mittel",
+        "strength_good": "Gut",
+        "strength_excellent": "Ausgezeichnet",
     },
     "中文": {
         "title": "密码管理器",
@@ -529,7 +597,12 @@ LANGUAGES = {
         "search_count": "找到: {}",
         "csv_export": "📊 导出 CSV",
         "csv_success": "CSV 导出完成！",
-        "saved_notification": "密码已保存"
+        "saved_notification": "密码已保存",
+        "strength_very_weak": "非常弱",
+        "strength_weak": "弱",
+        "strength_medium": "中等",
+        "strength_good": "良好",
+        "strength_excellent": "优秀",
     },
     "Français": {
         "title": "Gestionnaire de mots de passe",
@@ -603,34 +676,49 @@ LANGUAGES = {
         "search_count": "Trouvé : {}",
         "csv_export": "📊 Exporter CSV",
         "csv_success": "Exportation CSV terminée !",
-        "saved_notification": "Mot de passe enregistré"
+        "saved_notification": "Mot de passe enregistré",
+        "strength_very_weak": "Très faible",
+        "strength_weak": "Faible",
+        "strength_medium": "Moyen",
+        "strength_good": "Bon",
+        "strength_excellent": "Excellent",
     }
 }
 
 def get_system_language():
     try:
-        lang_code = locale.getdefaultlocale()[0]
-        if lang_code:
-            if lang_code.startswith('ru'):
-                return "Русский"
-            elif lang_code.startswith('tr'):
-                return "Türkçe"
-            elif lang_code.startswith('de'):
-                return "Deutsch"
-            elif lang_code.startswith('zh'):
-                return "中文"
-            elif lang_code.startswith('fr'):
-                return "Français"
-        return "English"
+        import ctypes
+        windll = ctypes.windll.kernel32
+        lang_id = windll.GetUserDefaultUILanguage()
+        # Коды языков Windows
+        if lang_id == 1049:  # Русский
+            return "Русский"
+        elif lang_id == 1055:  # Турецкий
+            return "Türkçe"
+        elif lang_id == 1031:  # Немецкий
+            return "Deutsch"
+        elif lang_id == 2052:  # Китайский (упрощенный)
+            return "中文"
+        elif lang_id == 1036:  # Французский
+            return "Français"
+        else:
+            return "English"
     except:
         return "English"
+# ------------------------------------------------------------
+# Основной класс приложения
+# ------------------------------------------------------------
 
-# ==================== ОСНОВНОЙ КЛАСС ====================
 class PasswordManager:
     def __init__(self):
         self.window = ctk.CTk()
         self.window.title("ManagerPass")
-        self.window.geometry("1400x800")
+        
+        settings = load_settings()
+        if "window_geometry" in settings:
+            self.window.geometry(settings["window_geometry"])
+        else:
+            self.window.geometry("1400x800")
         self.window.minsize(1200, 700)
         
         check_reset_key()
@@ -648,6 +736,12 @@ class PasswordManager:
             return
         
         self.passwords = load_passwords()
+        
+        if isinstance(self.passwords, dict) and self.passwords.get("_corrupted"):
+            self.handle_corrupted_data()
+            if isinstance(self.passwords, dict) and self.passwords.get("_corrupted"):
+                self.passwords = {}
+        
         self.settings_window = None
         self.setup_ui()
         self.refresh_list()
@@ -657,18 +751,67 @@ class PasswordManager:
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.setup_hotkeys()
     
+    def handle_corrupted_data(self):
+        backups = sorted([f for f in os.listdir(BACKUP_FOLDER) if f.startswith("passwords_")], reverse=True)
+        
+        if not backups:
+            self.show_message("Ошибка данных", "Файл паролей повреждён. Бэкапы не найдены.")
+            return
+        
+        dialog = ctk.CTkToplevel(self.window)
+        dialog.title("Восстановление данных")
+        dialog.geometry("500x300")
+        dialog.grab_set()
+        
+        ctk.CTkLabel(dialog, text="Файл паролей повреждён.", font=("Segoe UI", 14, "bold")).pack(pady=10)
+        ctk.CTkLabel(dialog, text="Выберите бэкап для восстановления:").pack()
+        
+        list_frame = ctk.CTkScrollableFrame(dialog, height=150)
+        list_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        selected = ctk.StringVar()
+        
+        for backup in backups[:10]:
+            timestamp = backup.replace("passwords_", "").replace(".enc", "")
+            btn = ctk.CTkRadioButton(
+                list_frame, 
+                text=timestamp.replace("_", " ").replace("-", ":"),
+                variable=selected,
+                value=backup
+            )
+            btn.pack(anchor="w", pady=2)
+        
+        def restore():
+            backup_file = selected.get()
+            if not backup_file:
+                return
+            try:
+                shutil.copy2(os.path.join(BACKUP_FOLDER, backup_file), DATA_FILE)
+                dialog.destroy()
+                self.passwords = load_passwords()
+                self.refresh_list()
+                self.show_notification("Данные восстановлены из бэкапа")
+            except Exception as e:
+                self.show_message("Ошибка", f"Не удалось восстановить: {e}")
+        
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=10)
+        ctk.CTkButton(btn_frame, text="Восстановить", command=restore, width=120).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="Начать заново", command=lambda: [dialog.destroy(), setattr(self, 'passwords', {})], width=120).pack(side="left", padx=10)
+    
     def setup_hotkeys(self):
-        """Настройка горячих клавиш"""
         self.window.bind("<Control-n>", lambda e: self.add_password())
         self.window.bind("<Control-f>", lambda e: self.search_entry.focus_set())
     
     def close_focused_dialog(self):
-        """Закрывает активное диалоговое окно, если оно есть"""
         focused = self.window.focus_get()
         if focused and isinstance(focused, ctk.CTkToplevel):
             focused.destroy()
     
     def on_closing(self):
+        settings = load_settings()
+        settings["window_geometry"] = self.window.geometry()
+        save_settings(settings)
         save_passwords(self.passwords)
         self.show_notification(self.lang_data["saved_notification"])
         self.window.destroy()
@@ -704,11 +847,11 @@ class PasswordManager:
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_first"], font=("Segoe UI", 14)).pack(pady=15)
         
-        pass_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        pass_entry = ctk.CTkEntry(dialog, show="*", width=250)
         pass_entry.pack(pady=5)
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_confirm"]).pack()
-        confirm_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        confirm_entry = ctk.CTkEntry(dialog, show="*", width=250)
         confirm_entry.pack(pady=5)
         
         error_label = ctk.CTkLabel(dialog, text="", text_color="red")
@@ -758,7 +901,7 @@ class PasswordManager:
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_title"], font=("Segoe UI", 14)).pack(pady=15)
         
-        pass_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        pass_entry = ctk.CTkEntry(dialog, show="*", width=250)
         pass_entry.pack(pady=10)
         
         error_label = ctk.CTkLabel(dialog, text="", text_color="red")
@@ -878,8 +1021,9 @@ class PasswordManager:
         password_row = ctk.CTkFrame(form_frame, fg_color="transparent")
         password_row.grid(row=2, column=1, padx=10, pady=8, sticky="w")
         
-        self.password_entry = ctk.CTkEntry(password_row, width=180, placeholder_text="••••••••", show="•")
+        self.password_entry = ctk.CTkEntry(password_row, width=180, placeholder_text="*", show="*")
         self.password_entry.pack(side="left", padx=(0, 8))
+        self.password_entry.bind("<KeyRelease>", self.update_password_strength)
         
         self.generate_btn = ctk.CTkButton(password_row, text="", width=70, command=self.generate_password)
         self.generate_btn.pack(side="left", padx=(0, 8))
@@ -887,10 +1031,20 @@ class PasswordManager:
         self.show_pass_check = ctk.CTkCheckBox(password_row, text="", command=self.toggle_password_visibility)
         self.show_pass_check.pack(side="left")
         
+        self.strength_frame = ctk.CTkFrame(form_frame, height=4, fg_color="transparent")
+        self.strength_frame.grid(row=3, column=1, padx=10, pady=(0, 5), sticky="ew")
+        
+        self.strength_bar = ctk.CTkProgressBar(self.strength_frame, width=280, height=6)
+        self.strength_bar.pack(fill="x")
+        self.strength_bar.set(0)
+        
+        self.strength_label = ctk.CTkLabel(self.strength_frame, text="", font=("Segoe UI", 10))
+        self.strength_label.pack(anchor="e", pady=(2, 0))
+        
         self.note_label = ctk.CTkLabel(form_frame, text="")
-        self.note_label.grid(row=3, column=0, padx=10, pady=8, sticky="w")
+        self.note_label.grid(row=4, column=0, padx=10, pady=8, sticky="w")
         self.note_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="Доп. информация")
-        self.note_entry.grid(row=3, column=1, padx=10, pady=8)
+        self.note_entry.grid(row=4, column=1, padx=10, pady=8)
         
         btn_frame = ctk.CTkFrame(self.main_frame)
         btn_frame.pack(fill="x", pady=(0, 15))
@@ -923,12 +1077,70 @@ class PasswordManager:
         self.tree_frame = ctk.CTkScrollableFrame(self.main_frame, height=400)
         self.tree_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        footer_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        footer_frame.pack(fill="x", pady=(10, 0))
+        footer_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent", height=20)
+        footer_frame.pack(fill="x", side="bottom", pady=(5, 5))
         
-        self.credit_label = ctk.CTkLabel(footer_frame, text="", font=("Segoe UI", 12), text_color="gray")
-        self.credit_label.pack(side="right")
+        self.credit_label = ctk.CTkLabel(footer_frame, text="", font=("Segoe UI", 11), text_color="#666666")
+        self.credit_label.pack(side="right", padx=15)
+        
+        self.credit_label.configure(text=self.lang_data["by_minux"], text_color="gray")
+        self.credit_label.lift()
     
+    def calculate_password_strength(self, password):
+        if not password:
+            return 0, "", ""
+        
+        length = len(password)
+        has_lower = any(c.islower() for c in password)
+        has_upper = any(c.isupper() for c in password)
+        has_digit = any(c.isdigit() for c in password)
+        has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?/~`" for c in password)
+        types_count = sum([has_lower, has_upper, has_digit, has_special])
+        unique_chars = len(set(password))
+        
+        score = length * 0.8 + types_count * 3 + unique_chars * 0.5
+        
+        password_lower = password.lower()
+        bad_patterns = ["password", "admin", "qwerty", "123456", "manager", "pass"]
+        for pattern in bad_patterns:
+            if pattern in password_lower:
+                score -= 5
+                break
+        
+        max_score = 40
+        normalized = max(0, min(score, max_score)) / max_score
+        
+        if normalized < 0.2:
+            text = self.lang_data.get("strength_very_weak", "Very Weak")
+            color = "#c0392b"
+        elif normalized < 0.35:
+            text = self.lang_data.get("strength_weak", "Weak")
+            color = "#e67e22"
+        elif normalized < 0.55:
+            text = self.lang_data.get("strength_medium", "Medium")
+            color = "#f1c40f"
+        elif normalized < 0.75:
+            text = self.lang_data.get("strength_good", "Good")
+            color = "#2ecc71"
+        else:
+            text = self.lang_data.get("strength_excellent", "Excellent")
+            color = "#27ae60"
+        
+        return normalized, text, color
+    
+    def update_password_strength(self, event=None):
+        password = self.password_entry.get()
+        if not password:
+            self.strength_bar.set(0)
+            self.strength_label.configure(text="", text_color="gray") # Цвет по умолчанию
+            return
+            
+        strength, text, color = self.calculate_password_strength(password)
+        
+        self.strength_bar.set(strength)
+        self.strength_bar.configure(progress_color=color)
+        self.strength_label.configure(text=text, text_color=color)
+        
     def on_search(self, event=None):
         self.refresh_list()
     
@@ -959,17 +1171,19 @@ class PasswordManager:
         self.list_label.configure(text=self.lang_data["saved_passwords"])
         
         self.credit_label.configure(text=self.lang_data["by_minux"])
+        self.update_password_strength()
     
     def toggle_password_visibility(self):
         if self.show_pass_check.get() == 1:
             self.password_entry.configure(show="")
         else:
-            self.password_entry.configure(show="•")
+            self.password_entry.configure(show="*")
     
     def generate_password(self):
         password = generate_strong_password()
         self.password_entry.delete(0, "end")
         self.password_entry.insert(0, password)
+        self.update_password_strength()
     
     def check_and_warn_weak_password(self, password):
         if is_weak_password(password):
@@ -990,6 +1204,9 @@ class PasswordManager:
         
         self.passwords = load_passwords()
         
+        if isinstance(self.passwords, dict) and self.passwords.get("_corrupted"):
+            self.passwords = {}
+        
         search_text = self.search_entry.get().strip().lower()
         
         items = self.passwords.items()
@@ -1002,16 +1219,16 @@ class PasswordManager:
         if not items:
             empty_label = ctk.CTkLabel(self.tree_frame, text=self.lang_data["empty"], text_color="gray")
             empty_label.pack(pady=20)
-            return
         
-        header = ctk.CTkFrame(self.tree_frame)
-        header.pack(fill="x", pady=(0, 5))
-        ctk.CTkLabel(header, text=self.lang_data["site_header"], font=("Segoe UI", 12, "bold"), width=280).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text=self.lang_data["login_header"], font=("Segoe UI", 12, "bold"), width=220).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text=self.lang_data["password_header"], font=("Segoe UI", 12, "bold"), width=180).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text=self.lang_data["note_header"], font=("Segoe UI", 12, "bold"), width=200).pack(side="left", padx=5)
-        ctk.CTkLabel(header, text="", width=120).pack(side="left")
-        
+        else:
+            header = ctk.CTkFrame(self.tree_frame)
+            header.pack(fill="x", pady=(0, 5))
+            ctk.CTkLabel(header, text=self.lang_data["site_header"], font=("Segoe UI", 12, "bold"), width=280).pack(side="left", padx=5)
+            ctk.CTkLabel(header, text=self.lang_data["login_header"], font=("Segoe UI", 12, "bold"), width=220).pack(side="left", padx=5)
+            ctk.CTkLabel(header, text=self.lang_data["password_header"], font=("Segoe UI", 12, "bold"), width=180).pack(side="left", padx=5)
+            ctk.CTkLabel(header, text=self.lang_data["note_header"], font=("Segoe UI", 12, "bold"), width=200).pack(side="left", padx=5)
+            ctk.CTkLabel(header, text="", width=120).pack(side="left")
+            
         for site, data in items:
             row = ctk.CTkFrame(self.tree_frame)
             row.pack(fill="x", pady=2)
@@ -1027,7 +1244,7 @@ class PasswordManager:
             login_entry.bind("<FocusOut>", lambda e, s=site, var=login_var: self.edit_cell(s, "login", var.get()))
             
             password_var = ctk.StringVar(value=data.get('password', ''))
-            password_entry = ctk.CTkEntry(row, textvariable=password_var, width=180, show="•")
+            password_entry = ctk.CTkEntry(row, textvariable=password_var, width=180, show="*")
             password_entry.pack(side="left", padx=5)
             password_entry.bind("<FocusOut>", lambda e, s=site, var=password_var: self.edit_cell(s, "password", var.get()))
             
@@ -1047,6 +1264,14 @@ class PasswordManager:
             
             copy_note_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_note"], width=70, command=lambda s=site, n=data.get('note', ''): self.copy_note(s, n))
             copy_note_btn.pack(side="left", padx=2)
+            
+        self.signature_label = ctk.CTkLabel(
+            self.tree_frame, 
+            text=self.lang_data["by_minux"], 
+            font=("Segoe UI", 11), 
+            text_color="gray"
+        )
+        self.signature_label.pack(pady=(10, 5))          
     
     def edit_cell(self, site, field, new_value):
         if site in self.passwords:
@@ -1107,6 +1332,7 @@ class PasswordManager:
         self.username_entry.delete(0, "end")
         self.password_entry.delete(0, "end")
         self.note_entry.delete(0, "end")
+        self.update_password_strength()
         
         self.refresh_list()
         self.show_notification(self.lang_data["saved_msg"].format(site))
@@ -1151,8 +1377,8 @@ class PasswordManager:
                 confirm_dialog.destroy()
                 self.show_notification(self.lang_data["deleted_msg"].format(site))
             
-            ctk.CTkButton(btn_frame, text="✅ Да", command=do_delete, width=80).pack(side="left", padx=15)
-            ctk.CTkButton(btn_frame, text="❌ Нет", command=confirm_dialog.destroy, width=80).pack(side="left", padx=15)
+            ctk.CTkButton(btn_frame, text="Да", command=do_delete, width=80).pack(side="left", padx=15)
+            ctk.CTkButton(btn_frame, text="Нет", command=confirm_dialog.destroy, width=80).pack(side="left", padx=15)
         
         ctk.CTkButton(select_dialog, text=self.lang_data["delete"], command=open_confirm).pack(pady=10)
         ctk.CTkButton(select_dialog, text=self.lang_data["cancel"], command=select_dialog.destroy).pack(pady=5)
@@ -1246,10 +1472,10 @@ class PasswordManager:
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_first"]).pack(pady=15)
-        pass_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        pass_entry = ctk.CTkEntry(dialog, show="*", width=250)
         pass_entry.pack(pady=5)
         ctk.CTkLabel(dialog, text=self.lang_data["master_confirm"]).pack()
-        confirm_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        confirm_entry = ctk.CTkEntry(dialog, show="*", width=250)
         confirm_entry.pack(pady=5)
         
         def set_it():
@@ -1279,15 +1505,15 @@ class PasswordManager:
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_title"]).pack(pady=10)
-        old_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        old_entry = ctk.CTkEntry(dialog, show="*", width=250)
         old_entry.pack(pady=5)
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_first"]).pack(pady=5)
-        new_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        new_entry = ctk.CTkEntry(dialog, show="*", width=250)
         new_entry.pack(pady=5)
         
         ctk.CTkLabel(dialog, text=self.lang_data["master_confirm"]).pack()
-        confirm_entry = ctk.CTkEntry(dialog, show="•", width=250)
+        confirm_entry = ctk.CTkEntry(dialog, show="*", width=250)
         confirm_entry.pack(pady=5)
         
         error_label = ctk.CTkLabel(dialog, text="", text_color="red")
