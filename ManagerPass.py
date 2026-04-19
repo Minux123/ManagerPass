@@ -112,6 +112,24 @@ def save_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
 
+def verify_backup_integrity():
+    """Проверяет последний бэкап на целостность."""
+    if not os.path.exists(BACKUP_FOLDER):
+        return True
+    backups = sorted([f for f in os.listdir(BACKUP_FOLDER) if f.startswith("passwords_")], reverse=True)
+    if not backups:
+        return True
+    
+    latest_backup = os.path.join(BACKUP_FOLDER, backups[0])
+    try:
+        key = get_or_create_key()
+        with open(latest_backup, 'rb') as f:
+            encrypted = f.read()
+        decrypt_data(encrypted, key)
+        return True
+    except:
+        return False
+
 # ------------------------------------------------------------
 # Мастер-пароль (с солью и миграцией)
 # ------------------------------------------------------------
@@ -287,6 +305,11 @@ LANGUAGES = {
         "strength_medium": "Средний",
         "strength_good": "Хороший",
         "strength_excellent": "Отличный",
+        "import_csv": "📥 Импорт CSV",
+        "hotkeys": "⌨️ Горячие клавиши",
+        "hotkey_add": "Ctrl+N — Добавить пароль",
+        "hotkey_search": "Ctrl+F — Поиск",
+        "hotkey_show_pass": "Двойной клик по паролю — Показать пароль",
     },
     "English": {
         "title": "Password Manager",
@@ -366,6 +389,11 @@ LANGUAGES = {
         "strength_medium": "Medium",
         "strength_good": "Good",
         "strength_excellent": "Excellent",
+        "import_csv": "📥 Import CSV",
+        "hotkeys": "⌨️ Hotkeys",
+        "hotkey_add": "Ctrl+N — Add password",
+        "hotkey_search": "Ctrl+F — Search",
+        "hotkey_show_pass": "Double-click on password — Show password",
     },
     "Türkçe": {
         "title": "Şifre Yöneticisi",
@@ -445,6 +473,11 @@ LANGUAGES = {
         "strength_medium": "Orta",
         "strength_good": "İyi",
         "strength_excellent": "Mükemmel",
+        "import_csv": "📥 CSV İçe Aktar",
+        "hotkeys": "⌨️ Kısayollar",
+        "hotkey_add": "Ctrl+N — Şifre ekle",
+        "hotkey_search": "Ctrl+F — Ara",
+        "hotkey_show_pass": "Şifreye çift tıkla — Şifreyi göster",
     },
     "Deutsch": {
         "title": "Passwort-Manager",
@@ -524,6 +557,11 @@ LANGUAGES = {
         "strength_medium": "Mittel",
         "strength_good": "Gut",
         "strength_excellent": "Ausgezeichnet",
+        "import_csv": "📥 CSV Import",
+        "hotkeys": "⌨️ Tastenkombinationen",
+        "hotkey_add": "Ctrl+N — Passwort hinzufügen",
+        "hotkey_search": "Ctrl+F — Suchen",
+        "hotkey_show_pass": "Doppelklick auf Passwort — Passwort anzeigen",
     },
     "中文": {
         "title": "密码管理器",
@@ -603,6 +641,11 @@ LANGUAGES = {
         "strength_medium": "中等",
         "strength_good": "良好",
         "strength_excellent": "优秀",
+        "import_csv": "📥 导入 CSV",
+        "hotkeys": "⌨️ 快捷键",
+        "hotkey_add": "Ctrl+N — 添加密码",
+        "hotkey_search": "Ctrl+F — 搜索",
+        "hotkey_show_pass": "双击密码 — 显示密码",
     },
     "Français": {
         "title": "Gestionnaire de mots de passe",
@@ -682,6 +725,11 @@ LANGUAGES = {
         "strength_medium": "Moyen",
         "strength_good": "Bon",
         "strength_excellent": "Excellent",
+        "import_csv": "📥 Importer CSV",
+        "hotkeys": "⌨️ Raccourcis",
+        "hotkey_add": "Ctrl+N — Ajouter un mot de passe",
+        "hotkey_search": "Ctrl+F — Rechercher",
+        "hotkey_show_pass": "Double-clic sur le mot de passe — Afficher le mot de passe",
     }
 }
 
@@ -690,21 +738,21 @@ def get_system_language():
         import ctypes
         windll = ctypes.windll.kernel32
         lang_id = windll.GetUserDefaultUILanguage()
-        # Коды языков Windows
-        if lang_id == 1049:  # Русский
+        if lang_id == 1049:
             return "Русский"
-        elif lang_id == 1055:  # Турецкий
+        elif lang_id == 1055:
             return "Türkçe"
-        elif lang_id == 1031:  # Немецкий
+        elif lang_id == 1031:
             return "Deutsch"
-        elif lang_id == 2052:  # Китайский (упрощенный)
+        elif lang_id == 2052:
             return "中文"
-        elif lang_id == 1036:  # Французский
+        elif lang_id == 1036:
             return "Français"
         else:
             return "English"
     except:
         return "English"
+
 # ------------------------------------------------------------
 # Основной класс приложения
 # ------------------------------------------------------------
@@ -741,6 +789,9 @@ class PasswordManager:
             self.handle_corrupted_data()
             if isinstance(self.passwords, dict) and self.passwords.get("_corrupted"):
                 self.passwords = {}
+        
+        if not verify_backup_integrity():
+            self.show_message("Предупреждение", "Последний бэкап повреждён. Рекомендуется создать новый, добавив любой пароль.")
         
         self.settings_window = None
         self.setup_ui()
@@ -988,38 +1039,44 @@ class PasswordManager:
         btn_right_frame.pack(side="right")
         
         self.settings_btn = ctk.CTkButton(btn_right_frame, text="", command=self.open_settings, width=100)
-        self.settings_btn.pack(side="left", padx=5)
+        self.settings_btn.pack(side="left", padx=2)
         
         self.export_btn = ctk.CTkButton(btn_right_frame, text="", command=self.export_passwords, width=100)
-        self.export_btn.pack(side="left", padx=5)
+        self.export_btn.pack(side="left", padx=2)
         
         self.csv_export_btn = ctk.CTkButton(btn_right_frame, text="", command=self.export_csv, width=100)
-        self.csv_export_btn.pack(side="left", padx=5)
+        self.csv_export_btn.pack(side="left", padx=2)
         
         self.import_btn = ctk.CTkButton(btn_right_frame, text="", command=self.import_passwords, width=100)
-        self.import_btn.pack(side="left", padx=5)
+        self.import_btn.pack(side="left", padx=2)
+        
+        self.import_csv_btn = ctk.CTkButton(btn_right_frame, text="", command=self.import_csv, width=110)
+        self.import_csv_btn.pack(side="left", padx=2)
         
         self.lang_button = ctk.CTkButton(btn_right_frame, text="", width=100, command=self.change_language)
-        self.lang_button.pack(side="left", padx=5)
+        self.lang_button.pack(side="left", padx=2)
+        
+        self.hotkeys_btn = ctk.CTkButton(btn_right_frame, text="", width=100, command=self.show_hotkeys)
+        self.hotkeys_btn.pack(side="left", padx=2)
         
         form_frame = ctk.CTkFrame(self.main_frame)
         form_frame.pack(fill="x", pady=(0, 15))
         
         self.site_label = ctk.CTkLabel(form_frame, text="")
-        self.site_label.grid(row=0, column=0, padx=10, pady=8, sticky="w")
+        self.site_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
         self.site_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="google.com")
-        self.site_entry.grid(row=0, column=1, padx=10, pady=8)
+        self.site_entry.grid(row=0, column=1, padx=10, pady=5)
         
         self.login_label = ctk.CTkLabel(form_frame, text="")
-        self.login_label.grid(row=1, column=0, padx=10, pady=8, sticky="w")
+        self.login_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
         self.username_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="user@example.com")
-        self.username_entry.grid(row=1, column=1, padx=10, pady=8)
+        self.username_entry.grid(row=1, column=1, padx=10, pady=5)
         
         self.password_label = ctk.CTkLabel(form_frame, text="")
-        self.password_label.grid(row=2, column=0, padx=10, pady=8, sticky="w")
+        self.password_label.grid(row=2, column=0, padx=10, pady=5, sticky="w")
         
         password_row = ctk.CTkFrame(form_frame, fg_color="transparent")
-        password_row.grid(row=2, column=1, padx=10, pady=8, sticky="w")
+        password_row.grid(row=2, column=1, padx=10, pady=5, sticky="w")
         
         self.password_entry = ctk.CTkEntry(password_row, width=180, placeholder_text="*", show="*")
         self.password_entry.pack(side="left", padx=(0, 8))
@@ -1042,9 +1099,14 @@ class PasswordManager:
         self.strength_label.pack(anchor="e", pady=(2, 0))
         
         self.note_label = ctk.CTkLabel(form_frame, text="")
-        self.note_label.grid(row=4, column=0, padx=10, pady=8, sticky="w")
+        self.note_label.grid(row=4, column=0, padx=10, pady=5, sticky="w")
         self.note_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="Доп. информация")
-        self.note_entry.grid(row=4, column=1, padx=10, pady=8)
+        self.note_entry.grid(row=4, column=1, padx=10, pady=5)
+        
+        self.category_label = ctk.CTkLabel(form_frame, text="Категория:")
+        self.category_label.grid(row=5, column=0, padx=10, pady=5, sticky="w")
+        self.category_entry = ctk.CTkEntry(form_frame, width=280, placeholder_text="Работа / Личное / Соцсети")
+        self.category_entry.grid(row=5, column=1, padx=10, pady=5)
         
         btn_frame = ctk.CTkFrame(self.main_frame)
         btn_frame.pack(fill="x", pady=(0, 15))
@@ -1065,6 +1127,10 @@ class PasswordManager:
         self.search_entry.pack(side="left", fill="x", expand=True, padx=5)
         self.search_entry.bind("<KeyRelease>", self.on_search)
         
+        self.category_filter = ctk.CTkComboBox(search_frame, values=["Все"], command=self.refresh_list, width=120)
+        self.category_filter.pack(side="left", padx=5)
+        self.category_filter.set("Все")
+        
         self.clear_search_btn = ctk.CTkButton(search_frame, text="", command=self.clear_search, width=80)
         self.clear_search_btn.pack(side="left", padx=5)
         
@@ -1077,14 +1143,11 @@ class PasswordManager:
         self.tree_frame = ctk.CTkScrollableFrame(self.main_frame, height=400)
         self.tree_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        footer_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent", height=20)
-        footer_frame.pack(fill="x", side="bottom", pady=(5, 5))
+        footer_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        footer_frame.pack(fill="x", pady=(10, 0))
         
-        self.credit_label = ctk.CTkLabel(footer_frame, text="", font=("Segoe UI", 11), text_color="#666666")
-        self.credit_label.pack(side="right", padx=15)
-        
-        self.credit_label.configure(text=self.lang_data["by_minux"], text_color="gray")
-        self.credit_label.lift()
+        self.credit_label = ctk.CTkLabel(footer_frame, text="", font=("Segoe UI", 12), text_color="gray")
+        self.credit_label.pack(side="right")
     
     def calculate_password_strength(self, password):
         if not password:
@@ -1132,7 +1195,7 @@ class PasswordManager:
         password = self.password_entry.get()
         if not password:
             self.strength_bar.set(0)
-            self.strength_label.configure(text="", text_color="gray") # Цвет по умолчанию
+            self.strength_label.configure(text="", text_color="gray")
             return
             
         strength, text, color = self.calculate_password_strength(password)
@@ -1140,7 +1203,7 @@ class PasswordManager:
         self.strength_bar.set(strength)
         self.strength_bar.configure(progress_color=color)
         self.strength_label.configure(text=text, text_color=color)
-        
+    
     def on_search(self, event=None):
         self.refresh_list()
     
@@ -1155,6 +1218,8 @@ class PasswordManager:
         self.export_btn.configure(text=self.lang_data["export"])
         self.csv_export_btn.configure(text=self.lang_data["csv_export"])
         self.import_btn.configure(text=self.lang_data["import"])
+        self.import_csv_btn.configure(text=self.lang_data.get("import_csv", "📥 Import CSV"))
+        self.hotkeys_btn.configure(text=self.lang_data.get("hotkeys", "⌨️ Hotkeys"))
         
         self.site_label.configure(text=self.lang_data["site"])
         self.login_label.configure(text=self.lang_data["login"])
@@ -1213,13 +1278,31 @@ class PasswordManager:
         if search_text:
             items = [(s, d) for s, d in items if search_text in s.lower() or search_text in d.get('username', '').lower() or search_text in d.get('note', '').lower()]
         
+        if hasattr(self, 'category_filter'):
+            current_val = self.category_filter.get()
+            categories = ["Все"] + sorted(list(set(d.get('category', '') for d in self.passwords.values() if d.get('category'))))
+            self.category_filter.configure(values=categories)
+            if current_val in categories:
+                self.category_filter.set(current_val)
+            else:
+                self.category_filter.set("Все")
+            
+            selected_category = self.category_filter.get()
+            if selected_category and selected_category != "Все":
+                items = [(s, d) for s, d in items if d.get('category', '') == selected_category]
+        
         count = len(items)
         self.search_count_label.configure(text=self.lang_data["search_count"].format(count) if search_text else "")
         
+        try:
+            if hasattr(self, 'signature_label'):
+                self.signature_label.destroy()
+        except:
+            pass
+
         if not items:
             empty_label = ctk.CTkLabel(self.tree_frame, text=self.lang_data["empty"], text_color="gray")
             empty_label.pack(pady=20)
-        
         else:
             header = ctk.CTkFrame(self.tree_frame)
             header.pack(fill="x", pady=(0, 5))
@@ -1229,49 +1312,60 @@ class PasswordManager:
             ctk.CTkLabel(header, text=self.lang_data["note_header"], font=("Segoe UI", 12, "bold"), width=200).pack(side="left", padx=5)
             ctk.CTkLabel(header, text="", width=120).pack(side="left")
             
-        for site, data in items:
-            row = ctk.CTkFrame(self.tree_frame)
-            row.pack(fill="x", pady=2)
-            
-            site_var = ctk.StringVar(value=site)
-            site_entry = ctk.CTkEntry(row, textvariable=site_var, width=280)
-            site_entry.pack(side="left", padx=5)
-            site_entry.bind("<FocusOut>", lambda e, s=site, var=site_var: self.edit_cell(s, "site", var.get()))
-            
-            login_var = ctk.StringVar(value=data.get('username', ''))
-            login_entry = ctk.CTkEntry(row, textvariable=login_var, width=220)
-            login_entry.pack(side="left", padx=5)
-            login_entry.bind("<FocusOut>", lambda e, s=site, var=login_var: self.edit_cell(s, "login", var.get()))
-            
-            password_var = ctk.StringVar(value=data.get('password', ''))
-            password_entry = ctk.CTkEntry(row, textvariable=password_var, width=180, show="*")
-            password_entry.pack(side="left", padx=5)
-            password_entry.bind("<FocusOut>", lambda e, s=site, var=password_var: self.edit_cell(s, "password", var.get()))
-            
-            note_var = ctk.StringVar(value=data.get('note', ''))
-            note_entry = ctk.CTkEntry(row, textvariable=note_var, width=200)
-            note_entry.pack(side="left", padx=5)
-            note_entry.bind("<FocusOut>", lambda e, s=site, var=note_var: self.edit_cell(s, "note", var.get()))
-            
-            btn_frame = ctk.CTkFrame(row, fg_color="transparent")
-            btn_frame.pack(side="left", padx=5)
-            
-            copy_login_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_login"], width=70, command=lambda s=site, u=data.get('username', ''): self.copy_login(s, u))
-            copy_login_btn.pack(side="left", padx=2)
-            
-            copy_pass_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_password"], width=70, command=lambda s=site, p=data.get('password', ''): self.copy_password(s, p))
-            copy_pass_btn.pack(side="left", padx=2)
-            
-            copy_note_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_note"], width=70, command=lambda s=site, n=data.get('note', ''): self.copy_note(s, n))
-            copy_note_btn.pack(side="left", padx=2)
-            
+            for site, data in items:
+                row = ctk.CTkFrame(self.tree_frame)
+                row.pack(fill="x", pady=2)
+                
+                site_var = ctk.StringVar(value=site)
+                site_entry = ctk.CTkEntry(row, textvariable=site_var, width=280)
+                site_entry.pack(side="left", padx=5)
+                site_entry.bind("<FocusOut>", lambda e, s=site, var=site_var: self.edit_cell(s, "site", var.get()))
+                
+                login_var = ctk.StringVar(value=data.get('username', ''))
+                login_entry = ctk.CTkEntry(row, textvariable=login_var, width=220)
+                login_entry.pack(side="left", padx=5)
+                login_entry.bind("<FocusOut>", lambda e, s=site, var=login_var: self.edit_cell(s, "login", var.get()))
+                
+                password_var = ctk.StringVar(value=data.get('password', ''))
+                password_entry = ctk.CTkEntry(row, textvariable=password_var, width=180, show="*")
+                password_entry.pack(side="left", padx=5)
+                password_entry.bind("<FocusOut>", lambda e, s=site, var=password_var: self.edit_cell(s, "password", var.get()))
+                
+                def make_show_password(entry):
+                    def show_password_on_double_click(event):
+                        entry.configure(show="")
+                        def hide_password(e):
+                            entry.configure(show="*")
+                            entry.unbind("<FocusOut>")
+                        entry.bind("<FocusOut>", hide_password)
+                    return show_password_on_double_click
+                
+                password_entry.bind("<Double-Button-1>", make_show_password(password_entry))
+                
+                note_var = ctk.StringVar(value=data.get('note', ''))
+                note_entry = ctk.CTkEntry(row, textvariable=note_var, width=200)
+                note_entry.pack(side="left", padx=5)
+                note_entry.bind("<FocusOut>", lambda e, s=site, var=note_var: self.edit_cell(s, "note", var.get()))
+                
+                btn_frame = ctk.CTkFrame(row, fg_color="transparent")
+                btn_frame.pack(side="left", padx=5)
+                
+                copy_login_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_login"], width=70, command=lambda s=site, u=data.get('username', ''): self.copy_login(s, u))
+                copy_login_btn.pack(side="left", padx=2)
+                
+                copy_pass_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_password"], width=70, command=lambda s=site, p=data.get('password', ''): self.copy_password(s, p))
+                copy_pass_btn.pack(side="left", padx=2)
+                
+                copy_note_btn = ctk.CTkButton(btn_frame, text=self.lang_data["copy_note"], width=70, command=lambda s=site, n=data.get('note', ''): self.copy_note(s, n))
+                copy_note_btn.pack(side="left", padx=2)
+
         self.signature_label = ctk.CTkLabel(
             self.tree_frame, 
             text=self.lang_data["by_minux"], 
             font=("Segoe UI", 11), 
             text_color="gray"
         )
-        self.signature_label.pack(pady=(10, 5))          
+        self.signature_label.pack(pady=(10, 5))
     
     def edit_cell(self, site, field, new_value):
         if site in self.passwords:
@@ -1310,6 +1404,7 @@ class PasswordManager:
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
         note = self.note_entry.get().strip()
+        category = self.category_entry.get().strip()
         
         if not site:
             self.show_message(self.lang_data["error_empty_site"], self.lang_data["error_empty_site_msg"])
@@ -1324,6 +1419,7 @@ class PasswordManager:
             "username": username,
             "password": password,
             "note": note,
+            "category": category,
             "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
         }
         save_passwords(self.passwords)
@@ -1332,6 +1428,7 @@ class PasswordManager:
         self.username_entry.delete(0, "end")
         self.password_entry.delete(0, "end")
         self.note_entry.delete(0, "end")
+        self.category_entry.delete(0, "end")
         self.update_password_strength()
         
         self.refresh_list()
@@ -1574,13 +1671,14 @@ class PasswordManager:
             try:
                 with open(file_path, 'w', encoding='utf-8-sig', newline='') as f:
                     writer = csv.writer(f)
-                    writer.writerow(["Site", "Username", "Password", "Note", "Date Added"])
+                    writer.writerow(["Site", "Username", "Password", "Note", "Category", "Date Added"])
                     for site, data in self.passwords.items():
                         writer.writerow([
                             site,
                             data.get('username', ''),
                             data.get('password', ''),
                             data.get('note', ''),
+                            data.get('category', ''),
                             data.get('date_added', '')
                         ])
                 self.show_notification(self.lang_data["csv_success"])
@@ -1601,6 +1699,40 @@ class PasswordManager:
                 self.show_notification(self.lang_data["import_success"])
             except Exception as e:
                 self.show_message(self.lang_data["import_error"], self.lang_data["import_error_msg"])
+    
+    def import_csv(self):
+        file_path = filedialog.askopenfilename(
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if not file_path:
+            return
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                imported_count = 0
+                for row in reader:
+                    site = row.get('Site') or row.get('site') or row.get('url') or row.get('URL') or ''
+                    username = row.get('Username') or row.get('username') or row.get('Login') or row.get('login') or ''
+                    password = row.get('Password') or row.get('password') or ''
+                    note = row.get('Note') or row.get('note') or row.get('Notes') or ''
+                    category = row.get('Category') or row.get('category') or ''
+                    
+                    if site and password:
+                        self.passwords[site] = {
+                            "username": username,
+                            "password": password,
+                            "note": note,
+                            "category": category,
+                            "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
+                        imported_count += 1
+                
+                save_passwords(self.passwords)
+                self.refresh_list()
+                self.show_notification(f"Импортировано записей: {imported_count}")
+        except Exception as e:
+            self.show_message("Ошибка импорта CSV", str(e))
     
     def change_language(self):
         langs = list(LANGUAGES.keys())
@@ -1635,6 +1767,22 @@ class PasswordManager:
         
         ctk.CTkLabel(dialog, text=message, wraplength=400).pack(pady=20)
         ctk.CTkButton(dialog, text=self.lang_data["ok"], command=dialog.destroy).pack(pady=5)
+    
+    def show_hotkeys(self):
+        dialog = ctk.CTkToplevel(self.window)
+        dialog.title(self.lang_data.get("hotkeys", "Hotkeys"))
+        dialog.geometry("400x250")
+        dialog.grab_set()
+        dialog.transient(self.window)
+        
+        add_text = self.lang_data.get("hotkey_add", "Ctrl+N — Add password")
+        search_text = self.lang_data.get("hotkey_search", "Ctrl+F — Search")
+        show_pass_text = self.lang_data.get("hotkey_show_pass", "Double-click on password — Show password")
+        
+        hotkeys_text = f"{add_text}\n{search_text}\n{show_pass_text}"
+        
+        ctk.CTkLabel(dialog, text=hotkeys_text, font=("Segoe UI", 12), justify="left").pack(pady=20, padx=20)
+        ctk.CTkButton(dialog, text=self.lang_data.get("ok", "OK"), command=dialog.destroy).pack(pady=10)
     
     def run(self):
         self.window.mainloop()
